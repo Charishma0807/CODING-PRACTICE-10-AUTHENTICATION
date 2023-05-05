@@ -30,6 +30,8 @@ const initializeDbAndServer = async () => {
 
 initializeDbAndServer();
 
+//authenticateToken
+
 const authenticateToken = (request, response, next) => {
   const authHeader = request.headers["authorization"];
   let jwtToken;
@@ -102,13 +104,124 @@ app.get("/states/", authenticateToken, async (request, response) => {
 app.get("/states/:stateId/", authenticateToken, async (request, response) => {
   const { stateId } = request.params;
   const selectStateQuery = `
-    SELECT *
+    SELECT state_id as stateId,
+        state_name as stateName,
+        population
     FROM state
     WHERE state_id = '${stateId}';
     `;
   const state = await db.get(selectStateQuery);
   response.send(state);
 });
+
+//post method using district
+
+app.post("/districts/", authenticateToken, async (request, response) => {
+  const { districtName, stateId, cases, cured, active, deaths } = request.body;
+  const createDistrictQuery = `
+    INSERT INTO district (district_name,state_id,cases,cured,active,deaths)
+    VALUES (
+        '${districtName}',
+        '${stateId}',
+        '${cases}',
+        '${cured}',
+        '${active}',
+        '${deaths}'
+    );
+    `;
+  await db.run(createDistrictQuery);
+  response.send("District Successfully Added");
+});
+
+//Returns districts based on district
+
+app.get(
+  "/districts/:districtId/",
+  authenticateToken,
+  async (request, response) => {
+    const { districtId } = request.params;
+    const districtQuery = `
+    SELECT district_id as districtId,
+    district_name as districtName,
+    state_id as stateId,
+    cases,cured,active,deaths
+    FROM district
+    WHERE district_id = '${districtId}';
+    `;
+    const districtArray = await db.get(districtQuery);
+    response.send(districtArray);
+  }
+);
+
+//Deletes a district from the district table based on the district ID
+
+app.delete(
+  "/districts/:districtId/",
+  authenticateToken,
+  async (request, response) => {
+    const { districtId } = request.params;
+    const deleteQuery = `
+    DELETE FROM
+    district
+    WHERE district_id = '${districtId}';
+    `;
+    const deleteArray = await db.run(deleteQuery);
+    response.send("District Removed");
+  }
+);
+
+//Updates the details of a specific district based on the district ID
+
+app.put(
+  "/districts/:districtId/",
+  authenticateToken,
+  async (request, response) => {
+    const { districtId } = request.params;
+    const {
+      districtName,
+      stateId,
+      cases,
+      cured,
+      active,
+      deaths,
+    } = request.body;
+
+    const updateQuery = `
+    UPDATE district
+    SET district_name = '${districtName}',
+    state_id = '${stateId}',
+    cases = '${cases}',
+    cured = '${cured}',
+    active = '${active}',
+    deaths = '${deaths}'
+    WHERE district_id = '${districtId}';
+    `;
+    const updateArray = await db.run(updateQuery);
+    response.send("District Details Updated");
+  }
+);
+
+//Returns the statistics
+
+app.get(
+  "/states/:stateId/stats/",
+  authenticateToken,
+  async (request, response) => {
+    const { stateId } = request.params;
+
+    const statsQuery = `
+    SELECT 
+    SUM(cases) as totalCases, 
+    SUM(cured) as totalCured,
+    SUM(active) as totalActive,
+    SUM(deaths) as totalDeaths
+    FROM district WHERE state_id='${stateId}';
+    `;
+
+    const statsResponse = await db.get(statsQuery);
+    response.send(statsResponse);
+  }
+);
 
 //result
 
